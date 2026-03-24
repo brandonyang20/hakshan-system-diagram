@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HakShan — Full System Architecture Mindmap</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0e17;font-family:'IBM Plex Sans',sans-serif;overflow-x:auto}
+#canvas{display:block}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+const CV  = document.getElementById('canvas');
+const ctx = CV.getContext('2d');
+
+const BG   = '#0a0e17';
+const MUTED = '#5a7599';
+const TEXT  = '#dce8f5';
+const SANS  = 'IBM Plex Sans';
+const MONO  = 'IBM Plex Mono';
+const PW    = 1200;
+
+const TH = {
+  gray:   { fill:'#111827', stroke:'#2a3f60',              title:'#dce8f5', dot:'#3a5070' },
+  teal:   { fill:'#091a18', stroke:'rgba(20,184,166,.6)',   title:'#5eead4', dot:'#14b8a6' },
+  purple: { fill:'#110b22', stroke:'rgba(139,92,246,.6)',   title:'#c4b5fd', dot:'#8b5cf6' },
+  amber:  { fill:'#160e00', stroke:'rgba(245,158,11,.6)',   title:'#fcd34d', dot:'#f59e0b' },
+  blue:   { fill:'#080f1e', stroke:'rgba(59,130,246,.6)',   title:'#93c5fd', dot:'#3b82f6' },
+  green:  { fill:'#04120a', stroke:'rgba(34,197,94,.6)',    title:'#86efac', dot:'#22c55e' },
+  coral:  { fill:'#150800', stroke:'rgba(249,115,22,.6)',   title:'#fdba74', dot:'#f97316' },
+  pink:   { fill:'#160310', stroke:'rgba(236,72,153,.6)',   title:'#f9a8d4', dot:'#ec4899' },
+};
+
+// ── NODE DEFINITIONS ──
+// x,y = top-left corner (after header offset of 100px)
+// Sections flow top to bottom with 70px gap between sections for lines to route through
+
+const NODES = [
+
+  // ═══ SECTION 01 — SUPPLIERS (y=120) ═══
+  { id:'sup-pork',         x:40,   y:120, w:200, h:150, theme:'gray',
+    label:'Pork supplier', sub:'SUP-CK-01',
+    bullets:['1 supplier for all pork items','Delivers to CK physically','Bills each outlet separately','Items: S1,S3,S4,S5,S8,S9,A1'] },
+  { id:'sup-seafood',      x:252,  y:120, w:200, h:150, theme:'gray',
+    label:'Seafood supplier', sub:'SUP-CK-02',
+    bullets:['1 supplier for all seafood','Delivers to CK physically','Bills each outlet separately','Items: Prawns, Grouper, Abalone'] },
+  { id:'sup-other-ck',     x:464,  y:120, w:200, h:150, theme:'gray',
+    label:'Other CK suppliers', sub:'SUP-CK-03',
+    bullets:['Chicken, Dessert categories','Same billing model','Delivers to CK physically','1 supplier per ingredient category'] },
+  { id:'sup-veg',          x:700,  y:120, w:200, h:150, theme:'gray',
+    label:'Veg supplier', sub:'SUP-DIRECT-01',
+    bullets:['Shared or outlet-specific','Delivers direct to outlet','Invoice via WA group','Daily / weekly orders'] },
+  { id:'sup-direct-other', x:912,  y:120, w:250, h:150, theme:'gray',
+    label:'Other direct items', sub:'SUP-DIRECT-02',
+    bullets:['Sauces, packaging etc.','Outlet-specific suppliers','Invoice via WA group','Ad hoc orders'] },
+
+  // ═══ SECTION 02 — WHATSAPP INTAKE (y=360) ═══
+  { id:'wa-ck',     x:40,  y:360, w:530, h:160, theme:'amber',
+    label:'CK WhatsApp — 1 NUMBER', sub:'WA-CK · All CK supplier invoices arrive here',
+    bullets:['Receives: SO / QT / IV documents as image or PDF','Volume: Multiple invoices per delivery cycle','Attribution: Claude reads billing company name on each invoice','"Horvy USJ Sdn Bhd" → routed to USJ outlet sheet','No group ID needed: Formal invoices only, no abbreviations'] },
+  { id:'wa-direct', x:590, y:360, w:570, h:160, theme:'amber',
+    label:'Shared number — 1 NUMBER · ALL GROUPS', sub:'WA-DIRECT · One number added to all outlet supplier WA groups',
+    bullets:['Receives: Veg and direct supplier invoices','Coverage: Added to all 8 outlet supplier WA groups','Attribution: Same logic — formal company name on invoice','Fallback: DIRECT | Outlet | Item | Qty | Price | Supplier','Formal invoices = 100% reliable — no config table needed'] },
+
+  // ═══ SECTION 03 — OPERATIONS (y=610) ═══
+  { id:'ck-main',  x:40,  y:610, w:550, h:150, theme:'teal',
+    label:'Central Kitchen — Holding Co', sub:'CK-01 · Receives · Processes · Dispatches · Bills monthly processing fee',
+    bullets:['Receiving: All CK deliveries arrive physically at CK regardless of outlet billed','Processing: Raw → finished items per outlet weekly request — 29 SKUs','Monthly processing fee: Formal invoice Holding Co → each outlet Sdn Bhd','Phase 1 automates the draft generation of processing fee invoices'] },
+  { id:'outlets',  x:610, y:610, w:550, h:150, theme:'purple',
+    label:'8 Outlet Sdn Bhds', sub:'OUTLET-01→08 · USJ · SS2 · Cheras · Kepong · Sri P. · KD · Puchong · CK',
+    bullets:['Bears: Raw ingredient cost (billed directly by supplier)','Pays: Monthly processing fee to Holding Co','Orders: Items from CK via Google Form each ordering cycle','Sells: To customers via FeedMe POS · Reports wastage via WA template'] },
+  { id:'pos',      x:40,  y:840, w:480, h:150, theme:'gray',
+    label:'FeedMe POS — per outlet', sub:'POS-01 · Cloud POS · API access confirmed · Daily sales per dish per outlet',
+    bullets:['Data pulled: Dishes sold × qty per outlet per day','BOM: Recipe cards in FeedMe — overridden by live invoice prices','Schedule: n8n pulls via API nightly at 11pm','Used for: Variance analysis (actual vs theoretical food cost)'] },
+
+  // ═══ SECTION 04 — FORM TRIGGERS (y=1090) ═══
+  { id:'form-01', x:40,  y:1090, w:360, h:160, theme:'green',
+    label:'Outlet item requests', sub:'FORM-01 · Replaces paper form + admin re-keying',
+    bullets:['Who fills: Outlet staff before each ordering cycle','Fields: Outlet (dropdown) · SKU · Qty · Remarks','Trigger: Sheets "On Row Added" fires n8n immediately on submit','n8n action: Logs to Master Ledger · Notifies CK admin','Replaces: Physical form → WA photo → admin re-keys'] },
+  { id:'form-02', x:420, y:1090, w:360, h:160, theme:'green',
+    label:'CK dispatch records', sub:'FORM-02 · Logs what CK sends to each outlet each cycle',
+    bullets:['Who fills: CK staff when items leave kitchen','Fields: Outlet · Item · Qty dispatched · Date','Trigger: Sheets "On Row Added" → n8n immediately','n8n action: Logs dispatch · Accumulates processing fee per outlet','Replaces: Manual admin entry to sheet'] },
+  { id:'form-03', x:800, y:1090, w:362, h:160, theme:'green',
+    label:'Inventory count', sub:'FORM-03 · Existing Google Form · kitchen staff daily',
+    bullets:['Who fills: Kitchen staff at close of day','Fields: Outlet · Ingredient · Opening · Closing stock','Trigger: Sheets → n8n on submission','n8n action: Writes to Master Ledger inventory tab','Used for: Actual food cost = Opening + Purchases − Closing'] },
+
+  // ═══ SECTION 05 — N8N ENGINE (y=1350) ═══
+  { id:'n8n', x:40, y:1350, w:1120, h:190, theme:'amber',
+    label:'n8n — Central Orchestration Engine', sub:'N8N-CORE · Claude OCR · Company name attribution · Dual write · Supplier detection · Price tracking · Scheduled jobs',
+    bullets:[
+      'Claude OCR pipeline: Reads invoice PDF/image · Extracts supplier, doc type (SO/QT/IV), invoice no, date, amounts · Confidence check',
+      'Company name attribution: Billing company → matched against 8 outlet names · Routes to correct outlet Sheet + Master Ledger',
+      'Supplier auto-detection: Checks vs Supplier Master · New supplier → auto-creates row + outlet tab → WhatsApp alert to admin',
+      'Dual write logic: Every invoice → (1) outlet Google Sheet supplier tab AND (2) Master Ledger invoice log tab simultaneously',
+      'Price change tracking: Extracted price vs last recorded · Change >5% → spike alert WhatsApp · Updates live SKU price table',
+      'Scheduled jobs: 11pm FeedMe API pull · Saturday snapshot archive + draft billing · Monday 8am weekly report to owner',
+    ] },
+
+  // ═══ SECTION 06 — INPUTS (y=1640) ═══
+  { id:'in-01', x:40,   y:1640, w:270, h:158, theme:'blue',
+    label:'CK supplier invoices', sub:'IN-01',
+    bullets:['Source: CK WhatsApp number','Format: Image or PDF attachment','Doc types: SO / QT / IV split into separate column','Trigger: On WA message received','Claude extracts: outlet, supplier, type, invoice no, date'] },
+  { id:'in-02', x:322,  y:1640, w:270, h:158, theme:'blue',
+    label:'Direct purchase invoices', sub:'IN-02',
+    bullets:['Source: Shared number (all outlet groups)','Format: Image / PDF or DIRECT template','Same pipeline as IN-01','Trigger: On WA message received','Covers: Veg, sauces, packaging per outlet'] },
+  { id:'in-03', x:604,  y:1640, w:270, h:158, theme:'blue',
+    label:'Outlet item requests', sub:'IN-03',
+    bullets:['Source: Google Form (FORM-01)','Trigger: Sheets On Row Added → n8n','Fields: Outlet · SKU · Qty · Date · Remarks','Action: Log to Master Ledger · Alert CK admin'] },
+  { id:'in-04', x:886,  y:1640, w:274, h:158, theme:'blue',
+    label:'CK dispatch records', sub:'IN-04',
+    bullets:['Source: Google Form (FORM-02)','Trigger: Sheets On Row Added → n8n','Fields: Outlet · Item · Qty · Date','Action: Log dispatch · Accumulate processing fee'] },
+  { id:'in-05', x:40,   y:1812, w:270, h:158, theme:'blue',
+    label:'FeedMe POS sales', sub:'IN-05',
+    bullets:['Source: FeedMe API','Schedule: Nightly 11pm pull','Data: Dishes sold × qty per outlet per day','Calc: Dishes × BOM = theoretical usage','Used for: Variance analysis'] },
+  { id:'in-06', x:322,  y:1812, w:270, h:158, theme:'blue',
+    label:'Wastage log', sub:'IN-06',
+    bullets:['Source: WhatsApp per outlet','Template: WASTE | Outlet | Item | Qty | Reason','Reasons: Spoiled / Over-prep / Wrong order / Dropped / Staff meal','Claude parses freeform text if template not followed'] },
+  { id:'in-07', x:604,  y:1812, w:270, h:158, theme:'blue',
+    label:'Inventory count', sub:'IN-07',
+    bullets:['Source: Existing Google Form (FORM-03)','Frequency: Daily by kitchen staff','Fields: Opening + closing stock per ingredient','Used for: Actual food cost = Opening + Purchases − Closing'] },
+  { id:'in-08', x:886,  y:1812, w:274, h:158, theme:'blue',
+    label:'Outlet own WA invoices', sub:'IN-08 (LATER PHASE)',
+    bullets:['Source: Each outlet own WA number','Covers: Direct veg and local purchases','Same OCR pipeline as IN-01','Already partially live via shared number'],
+    dashed:true },
+
+  // ═══ SECTION 07 — DUAL WRITE (y=2072) ═══
+  { id:'sheets-outlet',  x:40,  y:2072, w:540, h:218, theme:'purple',
+    label:'Per outlet Google Sheets ×8', sub:'SHEETS-OUTLET · 1 Google Sheet per outlet Sdn Bhd — separate legal entity',
+    bullets:[
+      '1 Sheet per outlet Sdn Bhd in Google Drive',
+      '1 tab per supplier — auto-created on first invoice from that supplier',
+      'New supplier detected → tab auto-created → admin WA alert for verification',
+      'Accountant adds month separator rows manually as before',
+      'No admin re-keying — n8n writes directly to correct tab',
+      'Columns per supplier tab: SUPPLIER | INVOICE | INVOICE NO | DATE',
+      'INVOICE column: SO = Sales Order · QT = Quotation · IV = Invoice',
+    ] },
+  { id:'master-ledger',  x:600, y:2072, w:560, h:218, theme:'teal',
+    label:'Master Ledger — Holding Co', sub:'LEDGER-MASTER · Full visibility all outlets · Permanent record · Never overwritten',
+    bullets:[
+      'Invoice log: All invoices tagged outlet / supplier / type / date / amount — permanent',
+      'Live SKU prices: Auto-updated per invoice · price history timestamped · replaces static BOM',
+      'Cost per outlet (weekly): Ingredient cost + processing fee per outlet Sdn Bhd',
+      'Variance analysis: Theoretical (FeedMe × BOM) vs actual cost · flags food cost leakage',
+      'Supplier master: All suppliers CK + outlets · auto-populated on first invoice',
+      'Weekly archive: Saturday snapshot before overwrite · full audit trail for accounts',
+    ] },
+
+  // ═══ SECTION 08 — PRICE INTELLIGENCE (y=2390) ═══
+  { id:'price-01', x:40,  y:2390, w:360, h:192, theme:'green',
+    label:'Price trend dashboard', sub:'PRICE-01 · Browser-based HTML dashboard · Already built and ready',
+    bullets:['Shows: All 29 SKUs — Pork, Chicken, Seafood, Dessert','Per ingredient: Spark line price history chart','Per ingredient: % change vs last order (red/green)','Per ingredient: Supplier name + order history','Per ingredient: Alert threshold indicator','Filter by: Category · Alerts only'] },
+  { id:'price-02', x:420, y:2390, w:360, h:192, theme:'green',
+    label:'Spike alerts', sub:'PRICE-02 · Real-time trigger during invoice processing',
+    bullets:['Trigger: Price change >5% vs last recorded price for same item','Timing: Instant — fires during invoice processing, not weekly','Sent to: Owner + purchasing manager via WhatsApp','Message: Item · Old price · New price · % change · Supplier','Threshold: Configurable per item in SKU Master'] },
+  { id:'price-03', x:800, y:2390, w:360, h:192, theme:'green',
+    label:'Supplier price comparison', sub:'PRICE-03 · Historical data from Master Ledger invoice log',
+    bullets:['Compares: Current invoice price vs 4-week rolling average','Flags: Suppliers consistently pricing above average','Visible in: Price trend dashboard per ingredient','Used for: Supplier renegotiation decisions','Also detects: Price drops — opportunity to lock in rates'] },
+
+  // ═══ SECTION 09 — PHASE 1 OUTPUTS (y=2680) ═══
+  { id:'out-01', x:40,  y:2680, w:268, h:192, theme:'coral',
+    label:'Monday morning report', sub:'OUT-01 · Every Monday 8am auto-generated',
+    bullets:['Sent to: Owner + Manager via WhatsApp','Food cost variance per outlet 🔴🟡🟢','Top 3 wastage items this week','Any price spike alerts this week','Critical / low stock flags per outlet','CK inventory KPI summary'] },
+  { id:'out-02', x:326, y:2680, w:268, h:192, theme:'coral',
+    label:'Monthly billing draft', sub:'OUT-02 · Auto-generated per outlet Sdn Bhd at month end',
+    bullets:['Sent to: Accounts team via WhatsApp','Total ingredient cost per outlet for the month','Processing fee owed to Holding Co','Breakdown by supplier and by week','Replaces: Manual backtracking through records','Accounts reviews and issues formal invoice'] },
+  { id:'out-03', x:612, y:2680, w:268, h:192, theme:'coral',
+    label:'Saturday inter-co statement', sub:'OUT-03 · Weekly snapshot before sheet overwritten',
+    bullets:['Timing: Every Saturday before weekly data update','Sent to: Admin for confirmation','Contains: That week\'s cost summary per outlet','Saved to: Weekly archive tab in Master Ledger','Solves: "Can\'t backtrack the cost" problem entirely'] },
+  { id:'out-04', x:898, y:2680, w:262, h:192, theme:'coral',
+    label:'New supplier alert', sub:'OUT-04 · Fires immediately on unknown supplier',
+    bullets:['Sent to: Admin via WhatsApp immediately','Contains: Supplier name · Outlet billed · Items + prices','Auto: New row created in Supplier Master','Auto: New tab created in outlet Sheet','Admin: Verify correct or delete if billing error'] },
+
+  // ═══ SECTION 10 — AI FORECASTING (y=2992) ═══
+  { id:'ai-forecast', x:40, y:2992, w:1120, h:182, theme:'pink',
+    label:'Claude AI — Stock Forecasting & Order Recommendation Engine', sub:'AI-FORECAST · Phase 2 — min. 8 weeks clean data required · Per-outlet historical data · Learns from manager overrides',
+    bullets:[
+      'Data inputs: 8+ weeks sales history per outlet · BOM from FeedMe · Historical wastage · Festive/seasonal calendar · Prior override decisions',
+      'Analysis per outlet: Per-outlet consumption trends · Growth/decline per SKU · Day-of-week patterns · Cross-outlet comparison · Over-ordering detection',
+      'Output + learning: Recommendation before each cycle · Manager confirms or overrides via WhatsApp · Every override logged · Model recalibrates over time',
+    ] },
+  { id:'out-05', x:40, y:3246, w:560, h:160, theme:'pink',
+    label:'Order suggestions per outlet — per 3-day ordering cycle', sub:'OUT-05 · Sent to outlet manager via WhatsApp before each order cycle',
+    bullets:['Format: WhatsApp — item-by-item recommended qty','Includes: Recommended qty · Confidence level · Reason (e.g. "weekend demand")','Manager action: Reply CONFIRM or adjust qty per item','Override: Logged automatically with manager\'s adjusted qty','Learning: System recalibrates based on override history over time'] },
+  { id:'inv-sheet', x:40, y:3476, w:560, h:160, theme:'gray',
+    label:'Existing inventory control sheet — v3', sub:'EXISTING-V3 · HORVY_CK_Inventory_Control_v3 · Already built',
+    bullets:['AI feeds back: Updated par level recommendations based on learned demand','Auto-updates: Par Level per outlet per SKU in SKU Master tab','KPI dashboard: Days of coverage heatmap refreshed automatically','Variance Analysis: Actual vs sales-based demand — over-ordering detection','Scenario Planner: What-if modelling with updated growth % and waste %'] },
+];
+
+// ── CONNECTIONS (verified: fromId → toId → colour → offsetX) ──
+// Lines drawn BEHIND cards as dashed
+// offsetX staggers parallel lines so they don't overlap
+const LINKS = [
+  // 01 Suppliers → 02 WA intake
+  // CK suppliers (left 3) → wa-ck (left box, centre ~305)
+  { f:'sup-pork',         t:'wa-ck',          c:'#f59e0b', o:-80 },
+  { f:'sup-seafood',      t:'wa-ck',          c:'#f59e0b', o:0   },
+  { f:'sup-other-ck',     t:'wa-ck',          c:'#f59e0b', o:80  },
+  // Direct suppliers (right 2) → wa-direct (right box, centre ~875)
+  { f:'sup-veg',          t:'wa-direct',      c:'#f59e0b', o:-30 },
+  { f:'sup-direct-other', t:'wa-direct',      c:'#f59e0b', o:30  },
+
+  // 02 WA → 03 Operations
+  { f:'wa-ck',     t:'ck-main', c:'#14b8a6', o:0  },
+  { f:'wa-direct', t:'outlets', c:'#8b5cf6', o:0  },
+
+  // 03 CK → Outlets (horizontal — right edge to left edge)
+  { f:'ck-main', t:'outlets', c:'#8b5cf6', o:0  },
+
+  // 03 Outlets → FeedMe POS
+  { f:'outlets', t:'pos',     c:'#3a5070', o:0  },
+
+  // POS → n8n
+  { f:'pos',     t:'n8n',     c:'#3a5070', o:0  },
+
+  // 04 Forms → n8n
+  { f:'form-01', t:'n8n',     c:'#22c55e', o:-60 },
+  { f:'form-02', t:'n8n',     c:'#22c55e', o:0   },
+  { f:'form-03', t:'n8n',     c:'#22c55e', o:60  },
+
+  // n8n → 06 Inputs
+  { f:'n8n', t:'in-01', c:'#3b82f6', o:-120 },
+  { f:'n8n', t:'in-02', c:'#3b82f6', o:-40  },
+  { f:'n8n', t:'in-03', c:'#3b82f6', o:40   },
+  { f:'n8n', t:'in-04', c:'#3b82f6', o:120  },
+  { f:'n8n', t:'in-05', c:'#3b82f6', o:-120 },
+  { f:'n8n', t:'in-06', c:'#3b82f6', o:-40  },
+  { f:'n8n', t:'in-07', c:'#3b82f6', o:40   },
+  { f:'n8n', t:'in-08', c:'#3b82f6', o:120  },
+
+  // 06 Inputs → 07 Dual write
+  // IN-01 and IN-02 → sheets-outlet (outlet sheets)
+  { f:'in-01', t:'sheets-outlet',  c:'#8b5cf6', o:-20 },
+  { f:'in-02', t:'sheets-outlet',  c:'#8b5cf6', o:20  },
+  // IN-01 through IN-07 → master-ledger
+  { f:'in-01', t:'master-ledger',  c:'#14b8a6', o:-80 },
+  { f:'in-02', t:'master-ledger',  c:'#14b8a6', o:-50 },
+  { f:'in-03', t:'master-ledger',  c:'#14b8a6', o:-20 },
+  { f:'in-04', t:'master-ledger',  c:'#14b8a6', o:10  },
+  { f:'in-05', t:'master-ledger',  c:'#14b8a6', o:-80 },
+  { f:'in-06', t:'master-ledger',  c:'#14b8a6', o:-50 },
+  { f:'in-07', t:'master-ledger',  c:'#14b8a6', o:-20 },
+
+  // 07 Master Ledger → 08 Price Intelligence
+  { f:'master-ledger', t:'price-01', c:'#22c55e', o:-40 },
+  { f:'master-ledger', t:'price-02', c:'#22c55e', o:0   },
+  { f:'master-ledger', t:'price-03', c:'#22c55e', o:40  },
+
+  // 08 Price Intelligence → 09 Outputs
+  { f:'price-01', t:'out-01', c:'#f97316', o:-20 },
+  { f:'price-02', t:'out-01', c:'#f97316', o:20  },
+  { f:'master-ledger', t:'out-02', c:'#f97316', o:-30 },
+  { f:'master-ledger', t:'out-03', c:'#f97316', o:0   },
+  { f:'master-ledger', t:'out-04', c:'#f97316', o:30  },
+
+  // 10 AI Forecasting chain
+  { f:'master-ledger', t:'ai-forecast', c:'#ec4899', o:0  },
+  { f:'ai-forecast',   t:'out-05',      c:'#ec4899', o:0  },
+  { f:'out-05',        t:'inv-sheet',   c:'#ec4899', o:0  },
+];
+
+// ── SECTION LABELS ──
+const SECTIONS = [
+  { y:100,  label:'01 — Suppliers' },
+  { y:340,  label:'02 — WhatsApp Invoice Intake' },
+  { y:590,  label:'03 — Operations' },
+  { y:1070, label:'04 — Google Form Triggers' },
+  { y:1330, label:'05 — n8n Automation Engine' },
+  { y:1620, label:'06 — All Data Inputs Into n8n' },
+  { y:2052, label:'07 — Dual Write — Every Invoice Writes to Both Destinations Simultaneously' },
+  { y:2370, label:'08 — Price Intelligence Layer' },
+  { y:2660, label:'09 — Phase 1 Outputs' },
+  { y:2972, label:'10 — AI Stock Forecasting Engine (Phase 2 — min. 8 weeks data)' },
+];
+
+// ── DIVIDERS ──
+const DIVIDERS = [
+  { y:1010, label:'AUTOMATION LAYER — n8n + Claude AI', color:'#3b82f6' },
+  { y:2932, label:'PHASE 2 — Minimum 8 weeks clean data required before activation', color:'#ec4899' },
+];
+
+// ── HELPERS ──
+function nodeMap() {
+  const m = {};
+  NODES.forEach(n => m[n.id] = n);
+  return m;
+}
+const NM = nodeMap();
+
+// Get the centre point of a node
+function centre(id) {
+  const n = NM[id];
+  if (!n) return null;
+  return { x: n.x + n.w/2, y: n.y + n.h/2 };
+}
+
+// Get the best edge point on a node toward a target point
+function edgePt(id, tx, ty) {
+  const n = NM[id];
+  if (!n) return null;
+  const cx = n.x + n.w/2;
+  const cy = n.y + n.h/2;
+  const dx = tx - cx;
+  const dy = ty - cy;
+  if (Math.abs(dy) >= Math.abs(dx)) {
+    // top or bottom
+    const ex = cx + dx * ((n.h/2) / Math.abs(dy));
+    return dy > 0
+      ? { x: Math.max(n.x+6, Math.min(n.x+n.w-6, ex)), y: n.y + n.h }
+      : { x: Math.max(n.x+6, Math.min(n.x+n.w-6, ex)), y: n.y };
+  } else {
+    // left or right
+    const ey = cy + dy * ((n.w/2) / Math.abs(dx));
+    return dx > 0
+      ? { x: n.x + n.w, y: Math.max(n.y+6, Math.min(n.y+n.h-6, ey)) }
+      : { x: n.x,       y: Math.max(n.y+6, Math.min(n.y+n.h-6, ey)) };
+  }
+}
+
+// Draw orthogonal dashed line with arrowhead
+// Uses explicit bottom-centre of source → top-centre of target when nodes are vertically arranged
+// Uses side edges when nodes are horizontally arranged
+// Adds a small horizontal offset to avoid lines stacking on each other
+function drawOrthoLink(fromId, toId, color, offsetX) {
+  const fn = NM[fromId], tn = NM[toId];
+  if (!fn || !tn) return;
+
+  const ox = offsetX || 0; // horizontal stagger to separate parallel lines
+
+  const fcx = fn.x + fn.w/2 + ox;
+  const fcy_bot = fn.y + fn.h;       // bottom of source
+  const fcy_top = fn.y;              // top of source
+  const tcx = tn.x + tn.w/2 + ox;
+  const tcy_top = tn.y;              // top of target
+  const tcy_bot = tn.y + tn.h;      // bottom of target
+
+  const fcy_mid = fn.y + fn.h/2;
+  const tcy_mid = tn.y + tn.h/2;
+
+  // Determine layout: above/below or side by side
+  const vertGap   = tn.y - (fn.y + fn.h);   // positive if target is below source
+  const horizGap  = tn.x - (fn.x + fn.w);   // positive if target is to the right
+
+  let pts;
+
+  if (vertGap >= -20) {
+    // Target is below (or slightly overlapping) — exit bottom, enter top
+    const fy = fcy_bot;
+    const ty = tcy_top;
+    const midY = fy + (ty - fy) * 0.5;
+    const fx = Math.max(fn.x + 8, Math.min(fn.x + fn.w - 8, fcx));
+    const tx = Math.max(tn.x + 8, Math.min(tn.x + tn.w - 8, tcx));
+
+    if (Math.abs(fx - tx) < 6) {
+      // nearly aligned — straight down
+      pts = [{x:fx, y:fy}, {x:tx, y:ty}];
+    } else {
+      // L-shape via midY
+      pts = [{x:fx, y:fy}, {x:fx, y:midY}, {x:tx, y:midY}, {x:tx, y:ty}];
+    }
+  } else if (horizGap >= -20) {
+    // Target is to the right — exit right edge, enter left edge
+    const fx = fn.x + fn.w;
+    const tx = tn.x;
+    const fy = Math.max(fn.y + 8, Math.min(fn.y + fn.h - 8, fcy_mid + ox));
+    const ty = Math.max(tn.y + 8, Math.min(tn.y + tn.h - 8, tcy_mid + ox));
+    const midX = fx + (tx - fx) * 0.5;
+    if (Math.abs(fy - ty) < 6) {
+      pts = [{x:fx, y:fy}, {x:tx, y:ty}];
+    } else {
+      pts = [{x:fx, y:fy}, {x:midX, y:fy}, {x:midX, y:ty}, {x:tx, y:ty}];
+    }
+  } else if (fn.x + fn.w <= tn.x + 20) {
+    // Source is to the left of target — right→left
+    const fx = fn.x + fn.w;
+    const tx = tn.x;
+    const fy = fcy_mid + ox;
+    const ty = tcy_mid + ox;
+    const midX = fx + (tx - fx) * 0.5;
+    pts = [{x:fx, y:fy}, {x:midX, y:fy}, {x:midX, y:ty}, {x:tx, y:ty}];
+  } else {
+    // fallback: bottom → top with mid routing
+    const fy = fcy_bot;
+    const ty = tcy_top;
+    const midY = fy + (ty - fy) * 0.5;
+    const fx = Math.max(fn.x + 8, Math.min(fn.x + fn.w - 8, fcx));
+    const tx = Math.max(tn.x + 8, Math.min(tn.x + tn.w - 8, tcx));
+    pts = [{x:fx, y:fy}, {x:fx, y:midY}, {x:tx, y:midY}, {x:tx, y:ty}];
+  }
+
+  // Clamp all points inside canvas width
+  pts = pts.map(p => ({x: Math.max(8, Math.min(PW-8, p.x)), y: p.y}));
+
+  ctx.save();
+  ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.65;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+
+  // arrowhead at target end
+  const last  = pts[pts.length-1];
+  const prev  = pts[pts.length-2];
+  const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+  const al = 9, aw = 0.42;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(last.x, last.y);
+  ctx.lineTo(last.x - al*Math.cos(angle - aw), last.y - al*Math.sin(angle - aw));
+  ctx.lineTo(last.x - al*Math.cos(angle + aw), last.y - al*Math.sin(angle + aw));
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.8;
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── DRAW NODE ──
+function rr(x,y,w,h,r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+}
+
+function drawNode(n) {
+  const th = TH[n.theme] || TH.gray;
+
+  // shadow
+  ctx.save();
+  ctx.shadowColor='rgba(0,0,0,0.55)';ctx.shadowBlur=14;ctx.shadowOffsetY=5;
+  rr(n.x,n.y,n.w,n.h,10);ctx.fillStyle=th.fill;ctx.fill();
+  ctx.restore();
+
+  // border
+  rr(n.x,n.y,n.w,n.h,10);
+  ctx.strokeStyle = th.stroke;
+  ctx.lineWidth = 1.5;
+  if (n.dashed) { ctx.setLineDash([5,3]); }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const P  = 13;
+  const IW = n.w - P*2;
+
+  // sub
+  if (n.sub) {
+    ctx.font=`400 9px '${MONO}'`;ctx.fillStyle=MUTED;ctx.textAlign='left';
+    let s=n.sub; while(ctx.measureText(s).width>IW&&s.length>4) s=s.slice(0,-1);
+    if(s!==n.sub) s+='…';
+    ctx.fillText(s,n.x+P,n.y+16);
+  }
+
+  // title
+  ctx.font=`500 13px '${SANS}'`;ctx.fillStyle=th.title;ctx.textAlign='left';
+  const ty0 = n.sub ? n.y+31 : n.y+18;
+  const words = n.label.split(' ');
+  let line='', ly=ty0;
+  for(const w of words){
+    const test=line?line+' '+w:w;
+    if(ctx.measureText(test).width>IW&&line){
+      ctx.fillText(line,n.x+P,ly);ly+=16;line=w;
+    } else line=test;
+  }
+  if(line){ ctx.fillText(line,n.x+P,ly); ly+=16; }
+
+  // divider
+  ctx.beginPath();ctx.moveTo(n.x+P,ly+2);ctx.lineTo(n.x+n.w-P,ly+2);
+  ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;ctx.stroke();
+
+  // bullets
+  if(n.bullets){
+    ctx.font=`400 10px '${SANS}'`;
+    let by=ly+16;
+    for(const b of n.bullets){
+      if(by+13>n.y+n.h-4) break;
+      ctx.beginPath();ctx.arc(n.x+P+3,by-3,2,0,Math.PI*2);
+      ctx.fillStyle=th.dot;ctx.fill();
+      ctx.fillStyle='#7a97b8';
+      let txt=b;
+      while(ctx.measureText(txt).width>IW-14&&txt.length>3) txt=txt.slice(0,-1);
+      if(txt!==b) txt+='…';
+      ctx.fillText(txt,n.x+P+12,by);
+      by+=14;
+    }
+  }
+}
+
+// ── DRAW SECTION LABELS ──
+function drawSections() {
+  SECTIONS.forEach(s=>{
+    ctx.font=`500 9px '${MONO}'`;ctx.fillStyle=MUTED;ctx.textAlign='left';
+    const txt=s.label.toUpperCase();
+    ctx.fillText(txt,40,s.y+7);
+    const lx=40+ctx.measureText(txt).width+12;
+    ctx.beginPath();ctx.moveTo(lx,s.y+3);ctx.lineTo(PW-40,s.y+3);
+    ctx.strokeStyle='rgba(42,63,96,0.5)';ctx.lineWidth=1;ctx.stroke();
+  });
+
+  DIVIDERS.forEach(d=>{
+    ctx.font=`500 9px '${MONO}'`;
+    const bw=ctx.measureText(d.label.toUpperCase()).width+28;
+    const bx=(PW-bw)/2;
+    rr(bx,d.y-11,bw,20,4);
+    ctx.fillStyle=d.color+'22';ctx.fill();
+    rr(bx,d.y-11,bw,20,4);
+    ctx.strokeStyle=d.color+'88';ctx.lineWidth=1;ctx.stroke();
+    ctx.fillStyle=d.color;ctx.textAlign='left';
+    ctx.fillText(d.label.toUpperCase(),bx+14,d.y+3);
+    // lines
+    ctx.beginPath();ctx.moveTo(40,d.y);ctx.lineTo(bx-8,d.y);
+    ctx.strokeStyle=d.color+'55';ctx.lineWidth=1;ctx.setLineDash([5,3]);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(bx+bw+8,d.y);ctx.lineTo(PW-40,d.y);
+    ctx.stroke();ctx.setLineDash([]);
+  });
+}
+
+// ── HEADER ──
+function drawHeader() {
+  // bg strip
+  ctx.fillStyle='rgba(245,158,11,0.07)';ctx.fillRect(0,0,PW,92);
+  ctx.strokeStyle='rgba(245,158,11,0.15)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,92);ctx.lineTo(PW,92);ctx.stroke();
+
+  ctx.font=`600 20px '${SANS}'`;ctx.fillStyle=TEXT;ctx.textAlign='left';
+  ctx.fillText('HakShan — Full System Architecture',40,32);
+  ctx.font=`400 9px '${MONO}'`;ctx.fillStyle=MUTED;
+  ctx.fillText('CENTRAL KITCHEN (HOLDING CO)  ·  8 OUTLET SDN BHDS  ·  n8n AUTOMATION PIPELINE  ·  v5.0  ·  MAR 2026',40,50);
+
+  // legend
+  const legend=[
+    {c:'#f59e0b',l:'Suppliers / WA'},{c:'#14b8a6',l:'CK / Teal'},{c:'#8b5cf6',l:'Outlet Sdn Bhds'},
+    {c:'#f59e0b',l:'n8n Engine'},{c:'#3b82f6',l:'Data Inputs'},{c:'#22c55e',l:'Price Intelligence'},
+    {c:'#f97316',l:'Phase 1 Outputs'},{c:'#ec4899',l:'Phase 2 / AI'},
+  ];
+  let lx=40;
+  ctx.font=`400 9px '${SANS}'`;
+  legend.forEach(it=>{
+    ctx.beginPath();ctx.arc(lx+4,72,4,0,Math.PI*2);ctx.fillStyle=it.c;ctx.fill();
+    ctx.fillStyle=MUTED;ctx.textAlign='left';ctx.fillText(it.l,lx+12,76);
+    lx+=ctx.measureText(it.l).width+26;
+  });
+}
+
+// ── FOOTER ──
+function drawFooter(h){
+  ctx.font=`400 9px '${MONO}'`;ctx.fillStyle='rgba(90,117,153,0.3)';ctx.textAlign='center';
+  ctx.fillText('HAKSHAN SYSTEM ARCHITECTURE v5.0  ·  MAR 2026  ·  WEJUMP DIGITAL',PW/2,h-18);
+}
+
+// ── RENDER ──
+function render() {
+  let maxY=0;
+  NODES.forEach(n=>{ if(n.y+n.h>maxY) maxY=n.y+n.h; });
+  const TH_CANVAS = maxY+80;
+
+  const dpr=window.devicePixelRatio||1;
+  CV.width=PW*dpr; CV.height=TH_CANVAS*dpr;
+  CV.style.width=PW+'px'; CV.style.height=TH_CANVAS+'px';
+  ctx.scale(dpr,dpr);
+
+  // background
+  ctx.fillStyle=BG; ctx.fillRect(0,0,PW,TH_CANVAS);
+
+  drawHeader();
+  drawSections();
+
+  // ── DRAW LINES FIRST (behind cards) ──
+  LINKS.forEach(lk => drawOrthoLink(lk.f, lk.t, lk.c, lk.o || 0));
+
+  // ── DRAW NODES ON TOP ──
+  NODES.forEach(drawNode);
+
+  drawFooter(TH_CANVAS);
+}
+
+window.addEventListener('load', ()=>setTimeout(render, 200));
+window.addEventListener('resize', render);
+</script>
+</body>
+</html>
